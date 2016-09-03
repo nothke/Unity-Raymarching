@@ -17,7 +17,7 @@ Shader "Unlit/Raymarch"
 	{
 		Tags{ "RenderType" = "Transparent" }
 		//LOD 100
-		
+
 		Blend SrcAlpha OneMinusSrcAlpha
 
 		Pass
@@ -52,7 +52,7 @@ Shader "Unlit/Raymarch"
 		o.wPos = mul(unity_ObjectToWorld, v.vertex).xyz;
 		return o;
 	}
-	
+
 	/*
 	float vmax(float3 v)
 	{
@@ -74,28 +74,28 @@ Shader "Unlit/Raymarch"
 		return length(p) - (r + noiseIQ(p));
 	}
 
-	float fogSphere(float3 p, float3 r)
-	{
-
-	}
-
-	float map(float3 p)
+	float map2(float3 p)
 	{
 
 		//float sphere1 = sphere(p, float3(0, 0, 0), 1);
 		//float sphere1 = sphere(noiseIQ(p), float3(0, 0, 0), 1);
 
-		float noiseSphere = max(noiseIQ(p*10), -sphere(p, float3(0, 0, 0), 1));
-		
+		float noiseSphere = max(noiseIQ(p * 10), -sphere(p, float3(0, 0, 0), 1));
+
 		float sphere2 = sphere(p, float3(0, 0, -0.5 + -1.5* (_SinTime.x - 0.3)), 0.2 * _SinTime.y);
 		float sphere3 = sphere(p, float3(0, 0, -0.5 + -1.6*_SinTime.x), 0.1);
 
 		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
 		float fillSphere = sphere(p, float3(0, 0, 0), 98);
 
-		return nSphere(p, 10, 10);
+		return nSphere(p, 100, 10);
 
 		//return min(max(sphere(-noiseIQ(p), float3(0,0,0), 1), boundsSphere), fillSphere);
+	}
+
+	float map(float3 p)
+	{
+		return sphere(p, float3(0,0,0), 10);
 	}
 
 	float mapBreakout(float3 p)
@@ -206,17 +206,14 @@ Shader "Unlit/Raymarch"
 		return c;
 	}
 
-	bool sphereHit(float3 p)
+	fixed4 renderDepth(float depth)
 	{
-		return distance(p,_Centre) < _Radius;
+		fixed4 c;
+		c.rgb = 1;
+		c.a = saturate( 1 - depth * 5000);
+
+		return c;
 	}
-
-	float sphereDistance(float3 p)
-	{
-		return distance(p, _Centre) - _Radius;
-	}
-
-
 
 	fixed4 raymarchOriginal(float3 position, float3 direction)
 	{
@@ -224,7 +221,7 @@ Shader "Unlit/Raymarch"
 		{
 			float distance = map(position);
 			if (distance < MIN_DISTANCE)
-				return renderSurface2(position);
+				return renderSurface(position);
 
 			position += distance * direction;
 		}
@@ -233,35 +230,26 @@ Shader "Unlit/Raymarch"
 
 	fixed4 raymarch(float3 position, float3 direction)
 	{
+		float depth = 0;
+
 		for (int i = 0; i < STEPS; i++)
 		{
 			float distance = map(position);
 
+
 			if (distance < MIN_DISTANCE)
-				return renderSurface2(position);
+				depth += distance;
 
 			position += distance * direction;
 		}
-		return fixed4(0, 0, 0, 0);
+
+		if (depth == 0)
+			return fixed4(0, 0, 0, 0);
+
+		return renderDepth(depth);
+
+		//return fixed4(0, 0, 0, 0);
 	}
-
-	bool raymarchHit(float3 position, float3 direction)
-	{
-		for (int i = 0; i < STEPS; i++)
-		{
-			if (sphereHit(position))
-				return true;
-
-			position += direction * STEP_SIZE;
-		}
-
-		return false;
-	}
-
-
-
-
-
 
 	fixed4 frag(v2f i) : SV_Target
 	{
@@ -269,8 +257,8 @@ Shader "Unlit/Raymarch"
 		float3 viewDirection = normalize(i.wPos - _WorldSpaceCameraPos);
 
 		//return lerp(fixed4(0, 0, 0, 0), fixed4(2, 2, 2, 2), raymarch(worldPosition, viewDirection));
-		
-		return lerp(_ColorEmpty, _Color, raymarch(worldPosition, viewDirection));
+
+		return lerp(_ColorEmpty, _Color, raymarchOriginal(worldPosition, viewDirection));
 
 
 		//return renderSurface(raymarch(worldPosition, viewDirection));
