@@ -8,11 +8,17 @@ Shader "Unlit/Raymarch"
 		_Centre("Centre", vector) = (0,0,0)
 		_Color("Color", Color) = (1,1,1,1)
 		_ColorEmpty("Color Empty", Color) = (0,0,0,0)
+		_FresnelColor("Fresnel Color", Color) = (1,0,0,0)
+		_FresnelPower("Fresnel Power", float) = 2
+		_Light2Color("Light 2 Color", Color) = (1,1,1,1)
+		_Light2Dir("Light 2 Direction", Vector) = (0,1,0,0)
 	}
 		SubShader
 	{
-		//Tags{ "RenderType" = "Transparent" }
+		Tags{ "RenderType" = "Transparent" }
 		//LOD 100
+		
+		Blend SrcAlpha OneMinusSrcAlpha
 
 		Pass
 	{
@@ -24,6 +30,7 @@ Shader "Unlit/Raymarch"
 #include "Lighting.cginc"
 #include "UnityCG.cginc"
 #include "hg_sdf.cginc"
+#include "noise.cginc"
 
 #define STEPS 64
 #define STEP_SIZE 0.005
@@ -62,16 +69,49 @@ Shader "Unlit/Raymarch"
 		return distance(p, c) - r;
 	}
 
+	float nSphere(float3 p, float3 r, float depth)
+	{
+		return length(p) - (r + noiseIQ(p));
+	}
+
+	float fogSphere(float3 p, float3 r)
+	{
+
+	}
+
 	float map(float3 p)
 	{
 
-		float sphere1 = sphere(p, float3(0, 0, 0), 1);
+		//float sphere1 = sphere(p, float3(0, 0, 0), 1);
+		//float sphere1 = sphere(noiseIQ(p), float3(0, 0, 0), 1);
+
+		float noiseSphere = max(noiseIQ(p*10), -sphere(p, float3(0, 0, 0), 1));
+		
 		float sphere2 = sphere(p, float3(0, 0, -0.5 + -1.5* (_SinTime.x - 0.3)), 0.2 * _SinTime.y);
 		float sphere3 = sphere(p, float3(0, 0, -0.5 + -1.6*_SinTime.x), 0.1);
 
-		return fOpUnionRound(fOpIntersectionColumns(sphere1, -sphere2, 0.4, 3), sphere3, 0.2);
+		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
+		float fillSphere = sphere(p, float3(0, 0, 0), 98);
+
+		return nSphere(p, 10, 10);
+
+		//return min(max(sphere(-noiseIQ(p), float3(0,0,0), 1), boundsSphere), fillSphere);
 	}
 
+	float mapBreakout(float3 p)
+	{
+
+		float sphere1 = sphere(p, float3(0, 0, 0), 1);
+		//float sphere1 = sphere(noiseIQ(p), float3(0, 0, 0), 1);
+
+		//float noiseSphere = max(noiseIQ(p*10), -sphere(p, float3(0, 0, 0), 1));
+
+		float sphere2 = sphere(p, float3(0, 0, -0.5 + -1.5* (_SinTime.x - 0.3)), 0.2 * _SinTime.y);
+		float sphere3 = sphere(p, float3(0, 0, -0.5 + -1.6*_SinTime.x), 0.1);
+
+
+		return fOpUnionRound(fOpIntersectionColumns(sphere1, -sphere2, 0.4, 3), sphere3, 0.2);
+	}
 
 	float mapButtocks(float3 p)
 	{
@@ -112,6 +152,9 @@ Shader "Unlit/Raymarch"
 	fixed4 _Color;
 	fixed4 _ColorEmpty;
 
+	fixed4 _Light2Color;
+	fixed4 _Light2Dir;
+
 	fixed4 simpleLambert(fixed3 normal) {
 		fixed3 lightDir = _WorldSpaceLightPos0.xyz;	// Light direction
 		fixed3 lightCol = _LightColor0.rgb;		// Light color
@@ -146,10 +189,21 @@ Shader "Unlit/Raymarch"
 		return c;
 	}
 
+	fixed3 _FresnelColor;
+	fixed _FresnelPower;
+
 	fixed4 renderSurface(float3 p)
 	{
 		float3 n = normal(p);
-		return simpleLambert(n) + lambertLight(n, fixed3(0,-1,1), fixed3(1,0,1)) + fresnelLight(n, fixed3(0.3,1,0.3), 2);
+		return simpleLambert(n) + lambertLight(n, _Light2Dir, _Light2Color) + fresnelLight(n, _FresnelColor, _FresnelPower);
+	}
+
+	fixed4 renderSurface2(float3 p)
+	{
+		fixed4 c;
+		c.rgb = 1;
+		c.a = 1;
+		return c;
 	}
 
 	bool sphereHit(float3 p)
@@ -164,13 +218,27 @@ Shader "Unlit/Raymarch"
 
 
 
-	fixed4 raymarch(float3 position, float3 direction)
+	fixed4 raymarchOriginal(float3 position, float3 direction)
 	{
 		for (int i = 0; i < STEPS; i++)
 		{
 			float distance = map(position);
 			if (distance < MIN_DISTANCE)
-				return renderSurface(position);
+				return renderSurface2(position);
+
+			position += distance * direction;
+		}
+		return fixed4(0, 0, 0, 0);
+	}
+
+	fixed4 raymarch(float3 position, float3 direction)
+	{
+		for (int i = 0; i < STEPS; i++)
+		{
+			float distance = map(position);
+
+			if (distance < MIN_DISTANCE)
+				return renderSurface2(position);
 
 			position += distance * direction;
 		}
