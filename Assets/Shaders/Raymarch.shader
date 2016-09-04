@@ -74,7 +74,7 @@ Shader "Unlit/Raymarch"
 		return length(p) - (r + noiseIQ(p));
 	}
 
-	float map2(float3 p)
+	float map(float3 p)
 	{
 
 		//float sphere1 = sphere(p, float3(0, 0, 0), 1);
@@ -88,12 +88,12 @@ Shader "Unlit/Raymarch"
 		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
 		float fillSphere = sphere(p, float3(0, 0, 0), 98);
 
-		return nSphere(p, 100, 10);
+		//return nSphere(p, 10, 10);
 
-		//return min(max(sphere(-noiseIQ(p), float3(0,0,0), 1), boundsSphere), fillSphere);
+		return min(max(sphere(-noiseIQ(p * 10), float3(0,0,0), 1 * p * _SinTime.x), boundsSphere), fillSphere);
 	}
 
-	float map(float3 p)
+	float mapw(float3 p)
 	{
 		return sphere(p, float3(0,0,0), 10);
 	}
@@ -210,7 +210,7 @@ Shader "Unlit/Raymarch"
 	{
 		fixed4 c;
 		c.rgb = 1;
-		c.a = saturate( 1 - depth * 5000);
+		c.a = saturate( depth * 0.01);
 
 		return c;
 	}
@@ -236,9 +236,8 @@ Shader "Unlit/Raymarch"
 		{
 			float distance = map(position);
 
-
 			if (distance < MIN_DISTANCE)
-				depth += distance;
+				depth += 1;
 
 			position += distance * direction;
 		}
@@ -247,8 +246,6 @@ Shader "Unlit/Raymarch"
 			return fixed4(0, 0, 0, 0);
 
 		return renderDepth(depth);
-
-		//return fixed4(0, 0, 0, 0);
 	}
 
 	fixed4 frag(v2f i) : SV_Target
@@ -258,7 +255,7 @@ Shader "Unlit/Raymarch"
 
 		//return lerp(fixed4(0, 0, 0, 0), fixed4(2, 2, 2, 2), raymarch(worldPosition, viewDirection));
 
-		return lerp(_ColorEmpty, _Color, raymarchOriginal(worldPosition, viewDirection));
+		return lerp(_ColorEmpty, _Color, raymarch(worldPosition, viewDirection));
 
 
 		//return renderSurface(raymarch(worldPosition, viewDirection));
