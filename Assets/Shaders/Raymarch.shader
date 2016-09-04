@@ -33,8 +33,9 @@ Shader "Unlit/Raymarch"
 #include "noise.cginc"
 
 #define STEPS 64
-#define STEP_SIZE 0.005
-#define MIN_DISTANCE 0.0001
+#define FOGSTEPS 512
+#define STEP_SIZE 0.02
+#define MIN_DISTANCE 0.1 // 0.0001
 
 	float3 _Centre;
 	float _Radius;
@@ -53,12 +54,6 @@ Shader "Unlit/Raymarch"
 		return o;
 	}
 
-	/*
-	float vmax(float3 v)
-	{
-		return max(max(v.x, v.y), v.z);
-	}*/
-
 	float sdf_boxcheap(float3 p, float3 c, float3 s)
 	{
 		return vmax(abs(p - c) - s);
@@ -71,7 +66,7 @@ Shader "Unlit/Raymarch"
 
 	float nSphere(float3 p, float3 r, float depth)
 	{
-		return length(p) - (r + noiseIQ(p));
+		return length(p) - (r +  noiseIQ(p * depth));
 	}
 
 	float map(float3 p)
@@ -88,9 +83,9 @@ Shader "Unlit/Raymarch"
 		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
 		float fillSphere = sphere(p, float3(0, 0, 0), 98);
 
-		//return nSphere(p, 10, 10);
+		return nSphere(p, 10, 2);
 
-		return min(max(sphere(-noiseIQ(p * 10), float3(0,0,0), 1 * p * _SinTime.x), boundsSphere), fillSphere);
+		//return min(max(sphere(-noiseIQ(p * 10), float3(0,0,0), 1 * p * _SinTime.x), boundsSphere), fillSphere);
 	}
 
 	float mapw(float3 p)
@@ -208,9 +203,11 @@ Shader "Unlit/Raymarch"
 
 	fixed4 renderDepth(float depth)
 	{
+		float d = depth * 0.003;
+
 		fixed4 c;
-		c.rgb = 1;
-		c.a = saturate( depth * 0.01);
+		c.rgb = lerp(_ColorEmpty, _Color, d);//
+		c.a = d;
 
 		return c;
 	}
@@ -228,14 +225,35 @@ Shader "Unlit/Raymarch"
 		return fixed4(0, 0, 0, 0);
 	}
 
+	fixed4 raymarchConstantDepth(float3 position, float3 direction)
+	{
+		float depth = 0;
+
+		for (int i = 0; i < FOGSTEPS; i++)
+		{
+			float distance = map(position);
+
+			if (distance < MIN_DISTANCE)
+				depth += 1;
+
+			position += direction * STEP_SIZE;
+		}
+
+		if (depth == 0)
+			return fixed4(0, 0, 0, 0);
+
+		return renderDepth(depth);
+	}
+
 	fixed4 raymarchConstant(float3 position, float3 direction)
 	{
+
 			for (int i = 0; i < STEPS; i++)
 			{
 				float distance = map(position);
 
 				if (distance < MIN_DISTANCE)
-					return fixed4(1, 0, 0, 1); // Red
+					return renderSurface(position);
 
 				position += direction * STEP_SIZE;
 			}
@@ -270,8 +288,8 @@ Shader "Unlit/Raymarch"
 
 		//return lerp(fixed4(0, 0, 0, 0), fixed4(2, 2, 2, 2), raymarch(worldPosition, viewDirection));
 
-		return lerp(_ColorEmpty, _Color, raymarch(worldPosition, viewDirection));
-
+		//return lerp(_ColorEmpty, _Color, raymarchConstantDepth(worldPosition, viewDirection));
+		return raymarchConstantDepth(worldPosition, viewDirection);
 
 		//return renderSurface(raymarch(worldPosition, viewDirection));
 
