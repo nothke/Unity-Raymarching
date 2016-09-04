@@ -228,6 +228,21 @@ Shader "Unlit/Raymarch"
 		return fixed4(0, 0, 0, 0);
 	}
 
+	fixed4 raymarchConstant(float3 position, float3 direction)
+	{
+			for (int i = 0; i < STEPS; i++)
+			{
+				float distance = map(position);
+
+				if (distance < MIN_DISTANCE)
+					return fixed4(1, 0, 0, 1); // Red
+
+				position += direction * STEP_SIZE;
+			}
+
+			return fixed4(0, 0, 0, 1); // White
+	}
+
 	fixed4 raymarch(float3 position, float3 direction)
 	{
 		float depth = 0;

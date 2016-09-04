@@ -17,7 +17,9 @@ public class Screenshot : MonoBehaviour
     {
         int num = 0;
 
-        string fileName = "screen_";
+        Directory.CreateDirectory("screenshots");
+
+        string fileName = "screenshots/screen_";
         string ext = ".png";
 
         while (File.Exists(fileName + num + ext))
