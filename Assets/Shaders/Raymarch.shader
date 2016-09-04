@@ -33,7 +33,7 @@ Shader "Unlit/Raymarch"
 #include "noise.cginc"
 
 #define STEPS 64
-#define FOGSTEPS 512
+#define FOGSTEPS 256
 #define STEP_SIZE 0.02
 #define MIN_DISTANCE 0.1 // 0.0001
 
@@ -198,16 +198,20 @@ Shader "Unlit/Raymarch"
 		fixed4 c;
 		c.rgb = 1;
 		c.a = 1;
+
 		return c;
 	}
 
-	fixed4 renderDepth(float depth)
+	fixed4 renderDepth(float p, float depth)
 	{
 		float d = depth * 0.003;
 
 		fixed4 c;
 		c.rgb = lerp(_ColorEmpty, _Color, d);//
 		c.a = d;
+
+		float3 n = normal(p);
+		c.rgb = simpleLambert(n);
 
 		return c;
 	}
@@ -242,7 +246,7 @@ Shader "Unlit/Raymarch"
 		if (depth == 0)
 			return fixed4(0, 0, 0, 0);
 
-		return renderDepth(depth);
+		return renderDepth(position, depth);
 	}
 
 	fixed4 raymarchConstant(float3 position, float3 direction)
@@ -278,7 +282,7 @@ Shader "Unlit/Raymarch"
 		if (depth == 0)
 			return fixed4(0, 0, 0, 0);
 
-		return renderDepth(depth);
+		return renderDepth(position, depth);
 	}
 
 	fixed4 frag(v2f i) : SV_Target
