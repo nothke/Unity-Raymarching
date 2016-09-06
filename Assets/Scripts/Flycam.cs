@@ -30,7 +30,7 @@ public class Flycam : MonoBehaviour
         Vector3 input = new Vector3(horizontal, vertical, forward);
 
 
-        transform.Translate(input * Time.deltaTime, Space.Self);
+        transform.Translate(input * Time.deltaTime * speed, Space.Self);
 
         transform.Rotate(-Input.GetAxis("Mouse Y"), Input.GetAxis("Mouse X"), 0, Space.Self);
     }

@@ -14,6 +14,7 @@ Shader "Unlit/Raymarch"
 		_Light2Dir("Light 2 Direction", Vector) = (0,1,0,0)
 		_FogColor1("Color Fog 1", Color) = (1,1,1,1)
 		_FogColor2("Color Fog 2", Color) = (1,1,0,1)
+		_FogDensity("Fog Density", float) = 0.01
 	}
 		SubShader
 	{
@@ -35,12 +36,14 @@ Shader "Unlit/Raymarch"
 #include "noise.cginc"
 
 #define STEPS 64
-#define FOGSTEPS 512
-#define STEP_SIZE 0.02
+#define FOGSTEPS 1024
+#define STEP_SIZE 0.005
 #define MIN_DISTANCE 0.1 // 0.0001
 
 	float3 _Centre;
 	float _Radius;
+
+	float _FogDensity;
 
 		struct v2f
 	{
@@ -71,10 +74,15 @@ Shader "Unlit/Raymarch"
 		return length(p) - (r +  noiseIQ(p * depth));
 	}
 
+	float iSphere(float3 p, float3 r)
+	{
+		return -length(p) - r;
+	}
+
 	// ----
 	// MAPS
 	// ----
-
+ 
 	float map(float3 p)
 	{
 
@@ -99,6 +107,49 @@ Shader "Unlit/Raymarch"
 	float mapFog(float3 p)
 	{
 		return sphere(p, float3(0, 0, 0), 11);
+	}
+
+	float mapExhaust(float3 p)
+	{
+		float fade = p.x * 0.01;
+
+		float fog1 = length(float3(0.03 + sin(p.x *1.1) * fade, p.y * fade, p.z * fade)) - 1.1;
+		float fog2 = length(float3(sin(p.x), p.y, p.z )) - 1.1;
+
+		
+
+		float d = fog1 * 2 ;
+
+		if (d < 0)
+			d = -1 - d;
+
+
+		//d += fog2;
+
+		d = max(d, fade);
+
+		//d = max(d, fade);
+		//d = fOpDifferenceRound(fac, fade, 10);
+
+		return d * 1;
+	}
+	
+	float mapExhaust2(float3 p)
+	{
+		float size = 2.5;
+		float c = 0;
+
+		c = pmod1(p.x, size);
+
+		float sphere1 = fSphere(p + fixed3(0, 0.5, 0), 2);
+		float sphere2 = fSphere(p + fixed3(0, -0.5, 0), 2);
+
+		float disc = max(sphere1, sphere2);
+
+		float box = fBox(p, fixed3(1,1,1));
+		float sphere = fSphere(p, 1);
+		
+		return disc;
 	}
 
 	float mapw(float3 p)
@@ -222,7 +273,7 @@ Shader "Unlit/Raymarch"
 
 	fixed4 renderDepth(float p, float depth)
 	{
-		float d = depth * 0.03;
+		float d = depth * _FogDensity;
 
 		fixed4 c;
 		c.rgb = lerp(_FogColor1, _FogColor2, d);//
@@ -239,6 +290,12 @@ Shader "Unlit/Raymarch"
 		//return renderSurface(p);
 		return (surface ? renderSurface(p) : 0) + renderDepth(p, depth);
 	}
+
+
+
+	// --------
+	// RAYMARCH
+	// --------
 
 	fixed4 raymarchOriginal(float3 position, float3 direction)
 	{
@@ -266,7 +323,7 @@ Shader "Unlit/Raymarch"
 		}
 		return fixed4(1, 1, 1, 1);
 	}
-
+	
 	fixed4 raymarchCombined(float3 position, float3 direction)
 	{
 		float depth = 0;
@@ -299,12 +356,32 @@ Shader "Unlit/Raymarch"
 
 		for (int i = 0; i < FOGSTEPS; i++)
 		{
-			float distance = map(position);
+			float distance = mapExhaust(position);
 
 			if (distance < MIN_DISTANCE)
 				depth += 1;
 
-			position += direction * STEP_SIZE * i * 0.1;
+			position += direction * STEP_SIZE * 10;// *i * 0.05;
+		}
+
+		if (depth == 0)
+			return fixed4(0, 0, 0, 0);
+
+		return renderDepth(position, depth);
+	}
+
+	fixed4 raymarchDensity(float3 position, float3 direction)
+	{
+		float depth = 0;
+
+		for (int i = 0; i < FOGSTEPS; i++)
+		{
+			float distance = mapExhaust(position);
+
+			if (distance < MIN_DISTANCE)
+				depth += - distance * 3;
+
+			position += direction * STEP_SIZE * 10;// *i * 0.05;
 		}
 
 		if (depth == 0)
@@ -354,7 +431,7 @@ Shader "Unlit/Raymarch"
 		float3 worldPosition = i.wPos;
 		float3 viewDirection = normalize(i.wPos - _WorldSpaceCameraPos);
 
-		return raymarchCombined(worldPosition, viewDirection);
+		return raymarchDensity(worldPosition, viewDirection);
 	}
 
 
