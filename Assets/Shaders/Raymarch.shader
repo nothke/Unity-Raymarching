@@ -33,7 +33,7 @@ Shader "Unlit/Raymarch"
 #include "noise.cginc"
 
 #define STEPS 64
-#define FOGSTEPS 256
+#define FOGSTEPS 512
 #define STEP_SIZE 0.02
 #define MIN_DISTANCE 0.1 // 0.0001
 
@@ -69,6 +69,10 @@ Shader "Unlit/Raymarch"
 		return length(p) - (r +  noiseIQ(p * depth));
 	}
 
+	// ----
+	// MAPS
+	// ----
+
 	float map(float3 p)
 	{
 
@@ -83,9 +87,16 @@ Shader "Unlit/Raymarch"
 		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
 		float fillSphere = sphere(p, float3(0, 0, 0), 98);
 
-		return nSphere(p, 10, 2);
+		//return nSphere(p, 10, 6);
 
 		//return min(max(sphere(-noiseIQ(p * 10), float3(0,0,0), 1 * p * _SinTime.x), boundsSphere), fillSphere);
+	
+		return fSphere(p, 10);
+	}
+
+	float mapFog(float3 p)
+	{
+		return sphere(p, float3(0, 0, 0), 11);
 	}
 
 	float mapw(float3 p)
@@ -190,13 +201,15 @@ Shader "Unlit/Raymarch"
 	fixed4 renderSurface(float3 p)
 	{
 		float3 n = normal(p);
-		return simpleLambert(n) + lambertLight(n, _Light2Dir, _Light2Color) + fresnelLight(n, _FresnelColor, _FresnelPower);
+		return simpleLambert(n);// +lambertLight(n, _Light2Dir, _Light2Color) + fresnelLight(n, _FresnelColor, _FresnelPower);
 	}
 
 	fixed4 renderSurface2(float3 p)
 	{
+		float3 n = normal(p);
+
 		fixed4 c;
-		c.rgb = 1;
+		c.rgb = n;
 		c.a = 1;
 
 		return c;
@@ -204,19 +217,39 @@ Shader "Unlit/Raymarch"
 
 	fixed4 renderDepth(float p, float depth)
 	{
-		float d = depth * 0.003;
+		float d = depth * 0.01;
 
 		fixed4 c;
 		c.rgb = lerp(_ColorEmpty, _Color, d);//
 		c.a = d;
 
 		float3 n = normal(p);
-		c.rgb = simpleLambert(n);
+		//c.rgb = simpleLambert(n);
 
 		return c;
 	}
 
+	fixed4 renderCombined(float3 p, bool surface, float depth)
+	{
+		//return renderSurface(p);
+		return (surface ? renderSurface(p) : 0) + renderDepth(p, depth);
+	}
+
 	fixed4 raymarchOriginal(float3 position, float3 direction)
+	{
+		for (int i = 0; i < STEPS; i++)
+		{
+			float distance = mapButtocks(position);
+
+			if (distance < MIN_DISTANCE)
+				return renderSurface(position);
+
+			position += distance * direction;
+		}
+		return fixed4(0, 0, 0, 0);
+	}
+
+	fixed4 raymarchO(float3 position, float3 direction)
 	{
 		for (int i = 0; i < STEPS; i++)
 		{
@@ -226,7 +259,33 @@ Shader "Unlit/Raymarch"
 
 			position += distance * direction;
 		}
-		return fixed4(0, 0, 0, 0);
+		return fixed4(1, 1, 1, 1);
+	}
+
+	fixed4 raymarchCombined(float3 position, float3 direction)
+	{
+		float depth = 0;
+
+		for (int i = 0; i < FOGSTEPS; i++)
+		{
+			float surfDistance = map(position);
+
+			if (surfDistance < MIN_DISTANCE)
+				return renderCombined(position, true, depth);
+
+
+			float fogDistance = mapFog(position);
+
+			if (fogDistance < MIN_DISTANCE)
+				depth += 1;
+
+			position += direction * STEP_SIZE;
+		}
+
+		if (depth == 0)
+			return fixed4(0, 0, 0, 0);
+
+		return renderCombined(position, false, depth);
 	}
 
 	fixed4 raymarchConstantDepth(float3 position, float3 direction)
@@ -240,7 +299,7 @@ Shader "Unlit/Raymarch"
 			if (distance < MIN_DISTANCE)
 				depth += 1;
 
-			position += direction * STEP_SIZE;
+			position += direction * STEP_SIZE * i * 0.1;
 		}
 
 		if (depth == 0)
@@ -290,18 +349,7 @@ Shader "Unlit/Raymarch"
 		float3 worldPosition = i.wPos;
 		float3 viewDirection = normalize(i.wPos - _WorldSpaceCameraPos);
 
-		//return lerp(fixed4(0, 0, 0, 0), fixed4(2, 2, 2, 2), raymarch(worldPosition, viewDirection));
-
-		//return lerp(_ColorEmpty, _Color, raymarchConstantDepth(worldPosition, viewDirection));
-		return raymarchConstantDepth(worldPosition, viewDirection);
-
-		//return renderSurface(raymarch(worldPosition, viewDirection));
-
-		/*
-		if (raymarchHit(worldPosition, viewDirection))
-			return fixed4(1,0,0,1); // Red if hit the ball
-		else
-			return fixed4(1,1,1,1); // White otherwise*/
+		return raymarchCombined(worldPosition, viewDirection);
 	}
 
 
