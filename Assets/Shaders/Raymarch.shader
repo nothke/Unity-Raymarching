@@ -87,11 +87,11 @@ Shader "Unlit/Raymarch"
 		float boundsSphere = sphere(p, float3(0, 0, 0), 100);
 		float fillSphere = sphere(p, float3(0, 0, 0), 98);
 
-		//return nSphere(p, 10, 6);
+		return nSphere(p, 10, 6);
 
 		//return min(max(sphere(-noiseIQ(p * 10), float3(0,0,0), 1 * p * _SinTime.x), boundsSphere), fillSphere);
 	
-		return fSphere(p, 10);
+		//return fSphere(p, 10);
 	}
 
 	float mapFog(float3 p)
@@ -201,7 +201,7 @@ Shader "Unlit/Raymarch"
 	fixed4 renderSurface(float3 p)
 	{
 		float3 n = normal(p);
-		return simpleLambert(n);// +lambertLight(n, _Light2Dir, _Light2Color) + fresnelLight(n, _FresnelColor, _FresnelPower);
+		return simpleLambert(n) + lambertLight(n, _Light2Dir, _Light2Color) + fresnelLight(n, _FresnelColor, _FresnelPower);
 	}
 
 	fixed4 renderSurface2(float3 p)
