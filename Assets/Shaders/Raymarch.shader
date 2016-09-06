@@ -12,6 +12,8 @@ Shader "Unlit/Raymarch"
 		_FresnelPower("Fresnel Power", float) = 2
 		_Light2Color("Light 2 Color", Color) = (1,1,1,1)
 		_Light2Dir("Light 2 Direction", Vector) = (0,1,0,0)
+		_FogColor1("Color Fog 1", Color) = (1,1,1,1)
+		_FogColor2("Color Fog 2", Color) = (1,1,0,1)
 	}
 		SubShader
 	{
@@ -198,6 +200,9 @@ Shader "Unlit/Raymarch"
 	fixed3 _FresnelColor;
 	fixed _FresnelPower;
 
+	fixed4 _FogColor1;
+	fixed4 _FogColor2;
+
 	fixed4 renderSurface(float3 p)
 	{
 		float3 n = normal(p);
@@ -217,10 +222,10 @@ Shader "Unlit/Raymarch"
 
 	fixed4 renderDepth(float p, float depth)
 	{
-		float d = depth * 0.01;
+		float d = depth * 0.03;
 
 		fixed4 c;
-		c.rgb = lerp(_ColorEmpty, _Color, d);//
+		c.rgb = lerp(_FogColor1, _FogColor2, d);//
 		c.a = d;
 
 		float3 n = normal(p);
