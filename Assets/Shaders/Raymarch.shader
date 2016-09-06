@@ -23,6 +23,7 @@ Shader "Unlit/Raymarch"
 
 		Blend SrcAlpha OneMinusSrcAlpha
 
+
 		Pass
 	{
 		CGPROGRAM
@@ -113,25 +114,43 @@ Shader "Unlit/Raymarch"
 	{
 		float fade = p.x * 0.01;
 
-		float fog1 = length(float3(0.03 + sin(p.x *1.1) * fade, p.y * fade, p.z * fade)) - 1.1;
-		float fog2 = length(float3(sin(p.x), p.y, p.z )) - 1.1;
+		float lnt = length(float3(sin(p.x *1.1) * fade, p.y, p.z * fade));
 
-		
+		//float lnt = length(p);
 
-		float d = fog1 * 2 ;
+		float fog1 = length(p) - 5;
+		float fog2 = length(float3(sin(p.x), p.y, p.z)) - 1.1;
+		float fogInv = length(p) - 1;
 
-		if (d < 0)
-			d = -1 - d;
+		//float fog2 = length(float3)
 
+		//float d = 0;
+
+			fixed f = length(float3(1 * 0.01 + sin(p.x * 1), p.y, p.z)) - 1.1;
+			//fixed f1 = length(float3(2 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
+			//fixed f2 = length(float3(3 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
+			//fixed f3 = length(float3(4 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
+
+			//d = f + f1 + f2 + f3;
+
+		//d = fog2;
+		//float d = max(fog1, - fogInv);
+
+		/*
+		float mask = step(d, 0);
+
+		d = lerp(0, -1, mask);
+
+		d = max(d, -fog2);*/
 
 		//d += fog2;
 
-		d = max(d, fade);
+		//d = max(d, fade);
 
 		//d = max(d, fade);
 		//d = fOpDifferenceRound(fac, fade, 10);
 
-		return d * 1;
+		return f;
 	}
 	
 	float mapExhaust2(float3 p)
