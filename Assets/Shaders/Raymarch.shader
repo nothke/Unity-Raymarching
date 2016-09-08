@@ -16,6 +16,8 @@ Shader "Unlit/Raymarch"
 		_FogColor2("Color Fog 2", Color) = (1,1,0,1)
 		_FogDensity("Fog Density", float) = 0.01
 		_Move("Move", float) = 0
+		_X("X", float) = 0
+		_Y("Y", float) = 0
 	}
 		SubShader
 	{
@@ -86,6 +88,8 @@ Shader "Unlit/Raymarch"
 	// ----
 
 	fixed _Move;
+	fixed _X;
+	fixed _Y;
  
 	float map(float3 p)
 	{
@@ -117,10 +121,23 @@ Shader "Unlit/Raymarch"
 	{
 		//pmodPolar(p.xy, 8);
 
-		float f = length(float2(length(p.xz) - 1 * sin(p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 0.4;
-		float g = length(float2(length(p.xz) - 1 * sin(3 + p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 0.4;
+		float sRadius1 = 1 + sin(p.y * 0.5);
+		float sRadius2 = 1 + sin(0.5 + p.y * 0.5);
 
-		return  lerp(min(f , g), max(f,g), 0.1) * 20 ;
+
+		float f = length(float2(length(p.xz) - 0.7 * (3 + sin(p.y * 0.5)), sin(0.5 + p.y * 0.5) * 0.5)) - 0.6;
+		float g = length(float2(length(p.xz) - 1 * sin(3 + p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 1;
+
+		pmod1(p.x, 1);
+
+		float sphere = length(p) - 1;
+
+		//if (f < 0) f = - f - 0.15;
+		//if (g < 0) g = -g -0.15;
+
+		//return sphere;
+		return f * 4;
+		//return  lerp(min(f , g), max(f,g), 0.1) * 20 ;
 	}
 
 	float mapShock(float3 p)
