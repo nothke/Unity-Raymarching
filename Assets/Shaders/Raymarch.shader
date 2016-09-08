@@ -4,6 +4,7 @@ Shader "Unlit/Raymarch"
 {
 	Properties
 	{
+		_RampTex("Ramp", 2D) = "white" {}
 		_Radius("Radius", float) = 1
 		_Centre("Centre", vector) = (0,0,0)
 		_Color("Color", Color) = (1,1,1,1)
@@ -48,6 +49,8 @@ Shader "Unlit/Raymarch"
 	float _Radius;
 
 	float _FogDensity;
+
+	sampler2D _RampTex;
 
 		struct v2f
 	{
@@ -117,20 +120,65 @@ Shader "Unlit/Raymarch"
 		return sphere(p, float3(0, 0, 0), 11);
 	}
 
+	float mapSimpleShock(float3 p)
+	{
+		
+
+		//float cone = fCone(p, 1, 1) * 10;
+		float sphere = fSphere(float3(0, _Move, 0) + p, _Y) * 0.1;
+
+		//return max(cone, sphere) * _X;
+
+		float peak = length(p.xz) - p.y;
+		float nPeak = length(p.xz) - p.y * 0.1;
+
+		float fade = _X + p.y * p.y * 0.3;
+
+		return peak + nPeak;
+
+		//return lerp(-fade, max(peak, sphere), 0.99);
+	}
+
+
 	float mapShockRot(float3 p)
 	{
 		//pmodPolar(p.xy, 8);
 
-		float sRadius1 = 1 + sin(p.y * 0.5);
+		float sRadius1 = _Move + sin(p.y * 1);
 		float sRadius2 = 1 + sin(0.5 + p.y * 0.5);
 
+		float fade = -p.y * 0.01;
 
-		float f = length(float2(length(p.xz) - 0.7 * (3 + sin(p.y * 0.5)), sin(0.5 + p.y * 0.5) * 0.5)) - 0.6;
-		float g = length(float2(length(p.xz) - 1 * sin(3 + p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 1;
+		float interval = 0.5  ;
 
-		pmod1(p.x, 1);
+		float fRad = length(p.xz) - 0.7 * (3 + sin(p.y * interval));
+		float fLin = sin(1 + p.y * 0.25) * 0.5;
 
-		float sphere = length(p) - 1;
+		float f = length(float2(fRad, fLin)) - 0.4;
+
+		float gRad = length(p.xz) - 1 * sin(3 + p.y * 0.5);
+		float gLin = sin(0.6 + p.y * 0.4) * 0.2;
+
+		float g = length(float2(gRad, gLin)) - 1;
+
+		//pmod1(p.x, 1);
+
+		//float sphere = length(p) - 1;
+
+		//f = min(f, g);
+
+		pmod1(p.y, 12);
+
+		float sc = fCone(float3(0, 5, 0) + p, 2.2, 5.5) * (1 + noiseIQ(_SinTime.z * 1000));
+
+		//good:
+		//f = max(lerp(f, blur, _X), -blur * 0.2 - _Y);
+
+		f = min(f * 1.12, sc);
+
+		f = max(lerp(f, fade, 0.5), -fade * 0.2 - 0.18);
+
+		
 
 		//if (f < 0) f = - f - 0.15;
 		//if (g < 0) g = -g -0.15;
@@ -354,11 +402,16 @@ Shader "Unlit/Raymarch"
 		float d = depth * _FogDensity;
 
 		fixed4 c;
-		c.rgb = lerp(_FogColor1, _FogColor2, d);//
+
+		// COLOR LERP RENDERING
+		//c.rgb = lerp(_FogColor1, _FogColor2, d);
+
+		// RAMP RENDERING
+		c.rgb = tex2D(_RampTex, float2(d, 0.5)).rgb;
+
 		c.a = d;
 
-		float3 n = normal(p);
-		//c.rgb = simpleLambert(n);
+		//float3 n = normal(p);
 
 		return c;
 	}
@@ -509,7 +562,7 @@ Shader "Unlit/Raymarch"
 		float3 worldPosition = i.wPos;
 		float3 viewDirection = normalize(i.wPos - _WorldSpaceCameraPos);
 
-		return raymarchDensity(worldPosition, viewDirection);
+		return raymarchDensity(i.wPos, viewDirection);
 	}
 
 
