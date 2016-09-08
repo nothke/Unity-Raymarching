@@ -109,7 +109,11 @@ Shader "RaymarchNoise"
  
 	float map(float3 p)
 	{
+		//pmod3(p, 20);
+		//return fSphere(p, 10);
 		return _X + noiseIQ(_Y * p + fixed3(_Time.z * 5, 0, 0));
+
+
 	}
 
 
@@ -246,9 +250,12 @@ Shader "RaymarchNoise"
 
 		fixed4 raymarched = raymarchOriginal(i.wPos, viewDirection);
 
+		float3 lightDir = _WorldSpaceLightPos0.xyz;
+		float lDot = dot(viewDirection, -lightDir);
+
 		fixed4 c;
-		c.rgb = tex2D(_MainTex, i.uv).rgb * 2 + raymarched.rgb;
-		c.a = i.color.a * tex2D(_MainTex, i.uv).a * raymarched.a * 3;
+		c.rgb = /*tex2D(_MainTex, i.uv).rgb +*/ raymarched.rgb * lDot;
+		c.a = i.color.a * tex2D(_MainTex, i.uv).a * raymarched.a;
 
 
 		//return raymarched;
