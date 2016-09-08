@@ -15,13 +15,14 @@ Shader "Unlit/Raymarch"
 		_FogColor1("Color Fog 1", Color) = (1,1,1,1)
 		_FogColor2("Color Fog 2", Color) = (1,1,0,1)
 		_FogDensity("Fog Density", float) = 0.01
+		_Move("Move", float) = 0
 	}
 		SubShader
 	{
-		Tags{ "RenderType" = "Transparent" }
+		Tags{ "RenderType" = "Transparent" "Queue" = "Transparent" }
 		//LOD 100
 
-		Blend SrcAlpha OneMinusSrcAlpha
+		Blend One One
 
 
 		Pass
@@ -83,6 +84,8 @@ Shader "Unlit/Raymarch"
 	// ----
 	// MAPS
 	// ----
+
+	fixed _Move;
  
 	float map(float3 p)
 	{
@@ -110,28 +113,67 @@ Shader "Unlit/Raymarch"
 		return sphere(p, float3(0, 0, 0), 11);
 	}
 
+	float mapShockRot(float3 p)
+	{
+		//pmodPolar(p.xy, 8);
+
+		float f = length(float2(length(p.xz) - 1 * sin(p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 0.4;
+		float g = length(float2(length(p.xz) - 1 * sin(3 + p.y * 0.5), sin(0.6 + p.y * 0.4) * 0.2)) - 0.4;
+
+		return  lerp(min(f , g), max(f,g), 0.1) * 20 ;
+	}
+
+	float mapShock(float3 p)
+	{
+		
+
+		float f = length(float2(length(p.xz) - (1.4 + sin(p.y * 1)), sin(0.6 + p.y * 0.5) * 0.4)) - 0.8;
+		float g = max(sin(p.y), f);
+
+		return f * 2 + g * 0.3;
+	}
+
 	float mapExhaust(float3 p)
 	{
-		float fade = p.x * 0.01;
+		float fade = p.x * 0.02;
 
-		float lnt = length(float3(sin(p.x *1.1) * fade, p.y, p.z * fade));
+		//float lnt = length(float3(sin(p.x *1.1) * fade, p.y, p.z * fade));
 
 		//float lnt = length(p);
 
-		float fog1 = length(p) - 5;
-		float fog2 = length(float3(sin(p.x), p.y, p.z)) - 1.1;
-		float fogInv = length(p) - 1;
+		//float fog1 = length(p) - 5;
+		//float fog2 = length(float3(sin(p.x), p.y, p.z)) - 1.1;
+		//float fogInv = length(p) - 1;
 
 		//float fog2 = length(float3)
 
+		
+
 		//float d = 0;
 
-			fixed f = length(float3(1 * 0.01 + sin(p.x * 1), p.y, p.z)) - 1.1;
-			//fixed f1 = length(float3(2 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
-			//fixed f2 = length(float3(3 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
-			//fixed f3 = length(float3(4 * 0.01 + sin(p.x * 2), p.y, p.z)) - 1.1;
+		fixed nosie = lerp(0.99, 1.01, noiseIQ(_SinTime.z * 100) * 9);
+
+		fixed offsetNoise =  (-0.5 + noiseIQ(134.34 + _CosTime.y * 1000)) * (1 / (fade * 5));
+		fixed offsetNoise2 = (-0.5 + noiseIQ(54.12 + _CosTime.y * 1000)) * (1 / (fade * 5));
+
+		fixed f = length(float3(sin(p.x * 1)  , p.y * nosie + offsetNoise * 2, p.z * nosie + offsetNoise2 * 2)) - 1.8;
+
+		fixed radialMult = 0.7 * (fade - 0.5) * nosie;
+		fixed fInv = length(float3(sin(p.x) * 0.6, p.y* radialMult, p.z * radialMult)) - 0.8;
+
+		fixed fS =(length(fixed3(nosie,0,0) + float3(sin(1.5 + p.x * 2), p.y + offsetNoise * 0.3, p.z + offsetNoise2 * 0.3)) - 0.9);
+
+		if (f < 0)
+			f = -1-f;
+
 
 			//d = f + f1 + f2 + f3;
+
+			//fixed d = max(f * 1, -fInv * 3);
+			fixed d = max(f * 2, -fInv * 2);
+			d = max(d, fade);
+			 d = fOpUnionRound(d, fS * 4, 1);
+			 d = max(d, -0.4 + fade * 3);
 
 		//d = fog2;
 		//float d = max(fog1, - fogInv);
@@ -150,7 +192,7 @@ Shader "Unlit/Raymarch"
 		//d = max(d, fade);
 		//d = fOpDifferenceRound(fac, fade, 10);
 
-		return f;
+		return fixed3(_Move,0,0) + d;
 	}
 	
 	float mapExhaust2(float3 p)
@@ -395,7 +437,7 @@ Shader "Unlit/Raymarch"
 
 		for (int i = 0; i < FOGSTEPS; i++)
 		{
-			float distance = mapExhaust(position);
+			float distance = mapShockRot(position);
 
 			if (distance < MIN_DISTANCE)
 				depth += - distance * 3;
