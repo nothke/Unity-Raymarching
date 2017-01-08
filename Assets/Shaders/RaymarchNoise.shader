@@ -111,7 +111,7 @@ Shader "RaymarchNoise"
 	{
 		//pmod3(p, 20);
 		//return fSphere(p, 10);
-		return _X + noiseIQ(_Y * p + fixed3(_Time.z * 5, 0, 0));
+		return 0;// _X + noiseIQ(_Y * p + fixed3(_Time.z * 5, 0, 0));
 
 
 	}

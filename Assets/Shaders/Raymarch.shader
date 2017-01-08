@@ -167,9 +167,9 @@ Shader "Unlit/Raymarch"
 
 		//f = min(f, g);
 
-		pmod1(p.y, 12);
+		//pmod1(p.y, 12);
 
-		float sc = fCone(float3(0, 5, 0) + p, 2.2, 5.5) * (1 + noiseIQ(_SinTime.z * 1000));
+		float sc = fCone(float3(0, 5, 0) + p, 2.2, 5.5) *  100*(4 + noiseIQ(_SinTime.z * 1000));
 
 		//good:
 		//f = max(lerp(f, blur, _X), -blur * 0.2 - _Y);
@@ -178,13 +178,17 @@ Shader "Unlit/Raymarch"
 
 		f = max(lerp(f, fade, 0.5), -fade * 0.2 - 0.18);
 
-		
+		f = fSphere(p, 1);
+
+		fixed f2 = fixed3(0.4,0,0) + fSphere(p, 2);
+
+		f = fOpUnionRound(f, f2, 0.1);
 
 		//if (f < 0) f = - f - 0.15;
 		//if (g < 0) g = -g -0.15;
 
 		//return sphere;
-		return f * 4;
+		return f * 1;
 		//return  lerp(min(f , g), max(f,g), 0.1) * 20 ;
 	}
 
