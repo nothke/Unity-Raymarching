@@ -110,17 +110,17 @@ public class PixelMarching : SceneViewFilter
         material.SetMatrix("_CameraInvViewMatrix", CurrentCamera.cameraToWorldMatrix);
         material.SetVector("_CameraWS", CurrentCamera.transform.position);
 
-        //source.filterMode = FilterMode.Point;
+        source.filterMode = FilterMode.Point;
         //RenderTexture buffer = RenderTexture.GetTemporary(Screen.width, Screen.height, -1);
-        //RenderTexture buffer = RenderTexture.GetTemporary(w, h, -1);
-        //buffer.filterMode = FilterMode.Point;
-        //Graphics.Blit(source, buffer);
+        RenderTexture buffer = RenderTexture.GetTemporary(w, h, -1);
+        buffer.filterMode = FilterMode.Point;
+        Graphics.Blit(source, buffer);
 
-        CustomGraphicsBlit(source, destination, material, 0);
+        CustomGraphicsBlit(buffer, buffer, material, 0);
        //Graphics.Blit(buffer, buffer, material); 
         
         //Graphics.Blit(buffer, destination, material);
-        //Graphics.Blit(buffer, destination);
+        Graphics.Blit(buffer, destination);
         
         //RenderTexture.ReleaseTemporary(buffer);
     }

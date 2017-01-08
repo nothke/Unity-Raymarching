@@ -20,14 +20,14 @@ Shader "Image/Pixelmarching"
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-			
+
 			#include "UnityCG.cginc"
 			#include "LeonsPerlin.cginc"
 
-			#define STEPS 32
-			#define FOGSTEPS 1024
-			#define STEP_SIZE 0.005
-			#define MIN_DISTANCE 0.1 // 0.0001
+			#define STEPS 1024
+			#define FOG_STEPS  10000
+			#define STEP_SIZE 0.01
+			#define MIN_DISTANCE 0.001 // 0.0001
 
 			uniform float4x4 _FrustumCornersES;
 			uniform sampler2D _MainTex;
@@ -49,13 +49,13 @@ Shader "Image/Pixelmarching"
 				float3 ray : TEXCOORD2;
 			};
 
-			v2f vert (appdata v)
+			v2f vert(appdata v)
 			{
 				v2f o;
 
 				half index = v.vertex.z;
 				v.vertex.z = 0.1;
-				
+
 				o.vertex = mul(UNITY_MATRIX_MVP, v.vertex);
 				o.wPos = mul(UNITY_MATRIX_MVP, v.vertex).xyz;
 				o.uv = v.uv.xy;
@@ -83,17 +83,48 @@ Shader "Image/Pixelmarching"
 				return length(p) - r;
 			}
 
+			float nSphere(float3 p, float3 r, float depth)
+			{
+				return length(p) - (r + noiseIQ(p * depth));
+			}
+
 			float map(float3 p)
 			{
-				return iSphere(p, 1);
+				float3 orbit = float3(_CosTime.x, 0, _SinTime.x) * 20;
+
+				float n1 = iSphere(p, 11);
+				float n2 = nSphere(p + orbit, 2, 1);
+				float n3 = nSphere(p, 11, 1.2);
+				float m = min(min(n1, n2), n3);
+				
+				return m;
+			}
+
+			float solidmap(float3 p)
+			{
+				float n1 = nSphere(p, 9, 1);
+				float n2 = iSphere(p, 9.5);
+				float m = min(n1, n2);
+				
+				return m;
 			}
 
 			// LIGHTING
 
-			fixed4 _Light2Color;
-			fixed4 _Light2Dir;
+			float3 solidnormal(float3 p)
+			{
+				const float eps = 0.01;
 
-			float3 normal(float3 p)
+				return normalize 
+				(float3
+					(solidmap(p + float3(eps, 0, 0)) - solidmap(p - float3(eps, 0, 0)),
+						solidmap(p + float3(0, eps, 0)) - solidmap(p - float3(0, eps, 0)),
+						solidmap(p + float3(0, 0, eps)) - solidmap(p - float3(0, 0, eps))
+						)
+				);
+			}
+
+			float3 fognormal(float3 p)
 			{
 				const float eps = 0.01;
 
@@ -106,10 +137,12 @@ Shader "Image/Pixelmarching"
 				);
 			}
 
+			fixed4 _LightColor0;
+
 			fixed4 lambert(fixed3 normal)
 			{
 				fixed3 lightDir = _WorldSpaceLightPos0.xyz;	// Light direction
-				//fixed3 lightCol = _LightColor0.rgb;		// Light color
+				fixed3 lightCol = _LightColor0.rgb;		// Light color
 
 				fixed NdotL = max(dot(normal, -lightDir), 0);
 				fixed4 c = 0;
@@ -119,19 +152,18 @@ Shader "Image/Pixelmarching"
 				return c;
 			}
 
-			fixed4 renderSurface(float3 p)
+			fixed4 renderSurface(float3 n)
 			{
-				float3 n = normal(p);
 				fixed4 c = 0;
-				
-				fixed4(1, 1, 1, 1);
-				c *= lambert(n);
+
+				c += lambert(n);
 
 				return c;
 			}
 
 			// RAYMARCHING
 
+			// surface raycasting
 			fixed4 raymarch(float3 position, float3 direction)
 			{
 				for (int i = 0; i < STEPS; i++)
@@ -141,9 +173,9 @@ Shader "Image/Pixelmarching"
 					if (distance < MIN_DISTANCE)
 					{
 						// for testing, returns cyan if it hits anything
-						return fixed4(0, 1, 1, 1);
+						//return fixed4(0, 1, 1, 1);
 
-						//return renderSurface(position);
+						return renderSurface(solidnormal(position));
 					}
 
 					position += distance * direction;
@@ -151,23 +183,57 @@ Shader "Image/Pixelmarching"
 
 				return fixed4(0, 0, 0, 0);
 			}
-			
-			fixed4 frag (v2f i) : SV_Target
+
+			// with depth
+			fixed4 depthmarch(float3 position, float3 direction)
+			{
+				float surf = 0;
+				float fog = 0;
+
+				for (int i = 0; i < FOG_STEPS; i++)
+				{
+					float distance = map(position);
+					float solidDistance = solidmap(position);
+
+					if (solidDistance < MIN_DISTANCE)
+					{
+						surf = renderSurface(solidnormal(position));
+
+						return surf + fog;
+					}
+					
+					if (distance < MIN_DISTANCE)
+					{
+						if (fog >= 1) return surf + fog; 
+
+						fog += 0.002 * (renderSurface(fognormal(position)));
+					}
+
+					position += direction * STEP_SIZE;
+				}
+
+				return surf + fog;
+			}
+
+			// FRAGMENT
+
+			fixed4 frag(v2f i) : SV_Target
 			{
 				float3 worldPosition = i.wPos;
 				//worldPosition = 0;
 				float3 viewDirection = normalize(worldPosition - _WorldSpaceCameraPos);
 				//float3 viewDir = UNITY_MATRIX_IT_MV[2].xyz;
 				float3 viewDir = i.ray;
-				fixed4 rm = raymarch(_WorldSpaceCameraPos, viewDir);
+				//fixed4 rm = raymarch(_WorldSpaceCameraPos, viewDir);
+				fixed4 rm = depthmarch(_WorldSpaceCameraPos, viewDir);
 
 				fixed4 c = 0;
-				
+
 				//c += rm;
-				//c = rm;
+				c = rm;
 				//c.a = 1;
 
-				c = fixed4(i.ray, 1);
+				//c = fixed4(i.ray, 1);
 
 				// Testing
 				//c += half4(i.uv, 1, 1) * 10;
