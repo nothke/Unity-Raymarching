@@ -122,6 +122,6 @@ public class PixelMarching : SceneViewFilter
         //Graphics.Blit(buffer, destination, material);
         Graphics.Blit(buffer, destination);
         
-        //RenderTexture.ReleaseTemporary(buffer);
+        RenderTexture.ReleaseTemporary(buffer);
     }
 }

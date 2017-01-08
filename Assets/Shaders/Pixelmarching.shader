@@ -25,9 +25,9 @@ Shader "Image/Pixelmarching"
 			#include "LeonsPerlin.cginc"
 
 			#define STEPS 1024
-			#define FOG_STEPS  10000
+			#define FOG_STEPS  5000
 			#define STEP_SIZE 0.01
-			#define MIN_DISTANCE 0.001 // 0.0001
+			#define MIN_DISTANCE 0.01 // 0.0001
 
 			uniform float4x4 _FrustumCornersES;
 			uniform sampler2D _MainTex;
@@ -88,13 +88,18 @@ Shader "Image/Pixelmarching"
 				return length(p) - (r + noiseIQ(p * depth));
 			}
 
+			float nSphere2(float3 p, float3 r, float depth, float motion)
+			{
+				return length(p) - (r + noiseIQ(p * depth + motion));
+			}
+
 			float map(float3 p)
 			{
-				float3 orbit = float3(_CosTime.x, 0, _SinTime.x) * 20;
+				//float3 orbit = float3(_CosTime.x, 0, _SinTime.x) * 20;
 
 				float n1 = iSphere(p, 11);
-				float n2 = nSphere(p + orbit, 2, 1);
-				float n3 = nSphere(p, 11, 1.2);
+				float n2 = nSphere2(p, 11, 3.2, _Time.y) * 0.2;
+				float n3 = nSphere2(p, 11, 1.2, _Time.x * 2);
 				float m = min(min(n1, n2), n3);
 				
 				return m;
@@ -102,9 +107,16 @@ Shader "Image/Pixelmarching"
 
 			float solidmap(float3 p)
 			{
+				float3 orbit = float3(_CosTime.y, 0, _SinTime.y) * 20;
+				float3 orbit2 = float3(_CosTime.x, 0, _SinTime.x) * 35;
+				float n3 = nSphere(p + orbit, 2, 1);
+
+				float moon2 = nSphere(p + orbit2, 3, 0.4);
+
 				float n1 = nSphere(p, 9, 1);
 				float n2 = iSphere(p, 9.5);
-				float m = min(n1, n2);
+				
+				float m = min(min(min(n1, n2), n3), moon2);
 				
 				return m;
 			}
@@ -209,7 +221,7 @@ Shader "Image/Pixelmarching"
 						fog += 0.002 * (renderSurface(fognormal(position)));
 					}
 
-					position += direction * STEP_SIZE;
+					position += direction * STEP_SIZE;//hash(_SinTime.x)*0.001;
 				}
 
 				return surf + fog;
